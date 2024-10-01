@@ -1,8 +1,15 @@
 <template>
   <div class="container mx-auto px-4 py-8">
-    <h1 class="text-4xl font-bold mb-8 text-center">Todo App</h1>
-    <TodoForm @add-todo="addTodo" />
-    <TodoList :todos="todos" @toggle-complete="toggleComplete" @delete="deleteTodo" />
+    <h1 class="text-4xl font-bold mb-8 text-center text-blue-600">Todo App</h1>
+    <div class="grid md:grid-cols-2 gap-8">
+      <TodoForm @add-todo="addTodo" @update-todo="updateTodo" :editing-todo="editingTodo" />
+      <TodoList
+        :todos="todos"
+        @toggle-complete="toggleComplete"
+        @delete="deleteTodo"
+        @edit="editTodo"
+      />
+    </div>
   </div>
 </template>
 
@@ -20,6 +27,7 @@ export default defineComponent({
   },
   setup() {
     const todos = ref<Todo[]>([])
+    const editingTodo = ref<Todo | null>(null)
 
     const fetchTodos = async () => {
       try {
@@ -39,15 +47,34 @@ export default defineComponent({
       }
     }
 
+    const updateTodo = async (updatedTodo: Todo) => {
+      try {
+        const response = await axios.put(
+          `http://127.0.0.1:8000/update_todo/${updatedTodo.id}`,
+          updatedTodo
+        )
+        const index = todos.value.findIndex((t) => t.id === updatedTodo.id)
+        if (index !== -1) {
+          todos.value[index] = response.data
+        }
+        editingTodo.value = null
+      } catch (error) {
+        console.error('Error updating todo:', error)
+      }
+    }
+
     const toggleComplete = async (id: number) => {
       const todo = todos.value.find((t) => t.id === id)
       if (todo) {
         try {
-          await axios.put(`http://127.0.0.1:8000/update_todo/${id}`, {
+          const response = await axios.put(`http://127.0.0.1:8000/update_todo/${id}`, {
             ...todo,
             completed: !todo.completed
           })
-          todo.completed = !todo.completed
+          const index = todos.value.findIndex((t) => t.id === id)
+          if (index !== -1) {
+            todos.value[index] = response.data
+          }
         } catch (error) {
           console.error('Error updating todo:', error)
         }
@@ -63,13 +90,20 @@ export default defineComponent({
       }
     }
 
+    const editTodo = (todo: Todo) => {
+      editingTodo.value = { ...todo }
+    }
+
     onMounted(fetchTodos)
 
     return {
       todos,
+      editingTodo,
       addTodo,
+      updateTodo,
       toggleComplete,
-      deleteTodo
+      deleteTodo,
+      editTodo
     }
   }
 })
